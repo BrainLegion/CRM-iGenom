@@ -1,0 +1,76 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace iGenom
+{
+    public partial class new_user : Form
+    {
+        public new_user(main_form m1)
+        {
+            m2 = m1;
+            InitializeComponent();
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+        }
+        main_form m2;
+        string MyConnectionString;
+        public static string CreateMD5(string input)
+        {
+            // Use input string to calculate MD5 hash
+            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
+                byte[] hashBytes = md5.ComputeHash(inputBytes);
+
+                // Convert the byte array to hexadecimal string
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("X2"));
+                }
+                return sb.ToString();
+            }
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "INSERT INTO users(login, name, pswd, role)VALUES(@login, @name, @pswd, @role)";
+                cmd.Parameters.AddWithValue("@login", usertb.Text);
+                cmd.Parameters.AddWithValue("@name", nametb.Text);
+                cmd.Parameters.AddWithValue("@pswd", CreateMD5(passwordtb.Text).ToLower());
+                cmd.Parameters.AddWithValue("@role", comboBox1.SelectedItem.ToString());
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            MessageBox.Show("Пользователь" + nametb.Text + "добавлен!\nЗапомните введенный пароль!");
+            this.Close();
+            m2.refresh_t1();
+        }
+
+        private void new_user_Load(object sender, EventArgs e)
+        {
+
+        }
+    }
+}

@@ -1,0 +1,847 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Net.Mail;
+using MySql.Data.MySqlClient;
+using Microsoft.Office.Interop.Word;
+
+namespace iGenom
+{
+    public partial class send_report : Form
+    {
+        private string[,] table;
+        public send_report(string[,] few_rows)
+        {
+            InitializeComponent();
+            this.table = few_rows;
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+
+            path = Directory.GetCurrentDirectory() + @"\Settings\emailsettings.txt";
+            string[] emailset = File.ReadAllLines(path, Encoding.UTF8);
+
+            email = emailset[2];
+            password = emailset[3];
+            smtpserver = emailset[0];
+            smtpport = emailset[1];
+        }
+
+        public static void toPdf(string inputFilename)
+        {
+            string[] fn = inputFilename.Split('.');
+            string outputFilename = fn[0] + ".pdf";
+            object defaultTemplate = inputFilename;
+            object missing = System.Type.Missing;
+            object pageBreak = Microsoft.Office.Interop.Word.WdBreakType.wdPageBreak;
+            object outputFile = outputFilename;
+            Microsoft.Office.Interop.Word._Application wordApplication = new Microsoft.Office.Interop.Word.Application();
+            try
+            {
+                Microsoft.Office.Interop.Word._Document wordDocument = wordApplication.Documents.Add(
+                                              ref defaultTemplate
+                                            , ref missing
+                                            , ref missing
+                                            , ref missing
+                                            );
+                wordDocument.ExportAsFixedFormat(outputFilename, WdExportFormat.wdExportFormatPDF);
+            }
+            catch (Exception ex) { MessageBox.Show(ex + ""); }
+            finally { wordApplication.Quit(ref missing, ref missing, ref missing); }
+        }
+        private const string defaultWordDocumentTemplate = @"Normal.dot";
+        public static void Merge(string[] filesToMerge, string[] wordsToReplace, string outputFilename, bool insertPageBreaks)
+        {
+            Merge(filesToMerge, wordsToReplace, outputFilename, insertPageBreaks, defaultWordDocumentTemplate);
+        }
+
+        public static void Merge(string[] filesToMerge, string[] wordsToReplace, string outputFilename, bool insertPageBreaks, string documentTemplate)
+        {
+            string resume = ""; 
+            foreach (string file in filesToMerge)
+            {
+                string[] x = file.Split('\\');
+                if (x[x.Length - 1].Split('.')[1] == "txt") 
+                {
+                    //MessageBox.Show(file);
+                    string[] s23 = File.ReadAllLines(file);
+                    foreach (string s24 in s23) 
+                    {
+                        resume += s24 + "\n";
+                    }
+                }               
+            }
+
+            string[] r1 = resume.Split(new char[] { '\r', '\n', '\f' }, StringSplitOptions.RemoveEmptyEntries);
+            string r2 = "";
+            List<string> r3 = new List<string>();
+            for (int i = 0; i < r1.Length; i++) 
+            {
+                if (r1[i].Contains("резюме")) { r3.Add(r1[i + 1]); }
+            }
+            IEnumerable<string> r4 = r3.Distinct();
+            List<string> r7 = new List<string>();
+            foreach (string diet in r4) 
+            {
+                r2 += "Краткое резюме " + diet.ToUpper() + "\n";
+                List<string> r5 = new List<string>();
+                for (int i = 0; i<r1.Length; i++)
+                {
+                    if (r1[i] == diet) 
+                    {
+                        r5.Add(r1[i + 1]);
+                    }
+                }
+                IEnumerable<string> r6 = r5.Distinct();
+                foreach (string r61 in r6) { r7.Add(r61); }
+                foreach (string diet2 in r6) 
+                {
+                    r2 += "● " + diet2 + "\n";
+                    //MessageBox.Show("r2= "+r2);
+                    for (int i = 0; i < r1.Length; i++)
+                    {
+                        if (r1[i] == diet2)
+                        {
+                            for (int j = i + 1; j < r1.Length; j++)
+                            {
+                                if (r1[j].Contains("резюме")) { break; }
+                                r2 += r1[j] + "\n";
+                            }
+                        }
+                    }
+                    r2 += "---\n";
+                }
+            }
+            List<string> r8 = new List<string>();
+            List<string> r89 = new List<string>();
+            r8.Add(filesToMerge[0]);
+            foreach (string file in filesToMerge) 
+            {
+                foreach (string d2 in r7) 
+                {
+                    string[] x = file.Split('\\');
+                    if (x[x.Length - 1].Split('.')[1] == "txt")
+                    {
+                        string[] s23 = File.ReadAllLines(file);
+                        //MessageBox.Show(x[x.Length - 1] + " " + s23[2] + "(1)");
+                        if (s23[2] == d2) 
+                        {
+                            r8.Add(file.Replace("\\R ", "\\V ").Replace(".txt", ".docx"));
+                            r89.Add(file.Replace("\\R ", "\\T ").Replace(".txt", ".docx"));
+                        }
+                    }
+                }
+            }
+            foreach (string s in r89) { r8.Add(s); }
+            string[] r9 = r8.ToArray();
+            string r123123 = "";
+            for (int i = 0; i < r9.Length -1; i++) 
+            { 
+                r123123 += r9[i] + "\n";
+            }
+            //MessageBox.Show(r123123 + "(2)");
+            object defaultTemplate = documentTemplate;
+            object missing = System.Type.Missing;
+            object pageBreak = Microsoft.Office.Interop.Word.WdBreakType.wdPageBreak;
+            object outputFile = outputFilename;
+            //object savedoc = outputFilename.Replace(".pdf", ".docx");
+            // Create  a new Word application
+            List<int> ps = new List<int>();
+            List<int> ps_v = new List<int>();
+            Microsoft.Office.Interop.Word._Application wordApplication = new Microsoft.Office.Interop.Word.Application();
+            try
+            { 
+                Microsoft.Office.Interop.Word._Document wordDocument = wordApplication.Documents.Add(
+                                              ref missing
+                                            , ref missing
+                                            , ref missing
+                                            , ref missing
+                                            );
+                // Make a Word selection object.
+                Microsoft.Office.Interop.Word.Selection selection = wordApplication.Selection;
+                Style s1 = selection.get_Style();
+                selection.PageSetup.Orientation = WdOrientation.wdOrientLandscape;
+                // Loop thru each of the Word documents
+                string s231 = "";
+                string s232 = "";
+                string s2311 = "";
+                string s2322 = "";
+               // MessageBox.Show("r9="+r9.Length.ToString());
+                for (int i = 0; i < r9.Length; i++) 
+                {
+                    string[] x = r9[i].Split('\\');
+
+                    if (x[x.Length - 1].Split('.')[0].Substring(0, 1) == "V")
+                    {
+                        string[] s23 = File.ReadAllLines(r9[i].Replace("\\V ", "\\R ").Replace(".docx", ".txt"));
+                        //MessageBox.Show("r91=" + r9[i].ToString());
+                        //MessageBox.Show("s23= "+s23[0]);
+                        if (s231 != s23[1] && s2311 != s23[3])
+                        {
+                            //MessageBox.Show("r9=" + r9[i].ToString());
+
+                            //MessageBox.Show(s231.ToString() + " !=" + s23[2].ToString());
+                           // MessageBox.Show("s23= "+s23[1].ToString());
+                            //MessageBox.Show(s231 + " " + s23[2] + "(2)");
+                            s231 = s23[1];
+                            s2311 = s23[3];
+                            ps.Add(wordDocument.ActiveWindow.ActivePane.Pages.Count + 1 );
+                            
+                        }
+                    }
+                    if (x[x.Length - 1].Split('.')[0].Substring(0, 1) == "T")
+                    {
+                        string[] s23 = File.ReadAllLines(r9[i].Replace("\\T ", "\\R ").Replace(".docx", ".txt"));
+                        if (s232 != s23[1] && s2322 != s23[3])
+                        {
+                            //MessageBox.Show(s232 + " " + s23[2] + "(3)");
+                            s232 = s23[1];
+                            s2322 = s23[3];
+                            ps_v.Add(wordDocument.ActiveWindow.ActivePane.Pages.Count + 1 );
+                            
+                        }
+                    }
+                    selection.InsertFile(r9[i]
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing);
+                    //Do we want page breaks added after each documents?
+                    if (insertPageBreaks) { 
+                        selection.InsertBreak(ref pageBreak); 
+                    }     
+                }
+
+                //Save the document to it's output file.
+                wordDocument.SaveAs(
+                              ref outputFile
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing
+                            , ref missing);
+                // Clean up!
+                Microsoft.Office.Interop.Word.Find fnd = selection.Find;
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[Year]";
+                fnd.Replacement.Text = DateTime.Now.Year.ToString();
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[Name]";
+                fnd.Replacement.Text = wordsToReplace[0];
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[Surname]";
+                fnd.Replacement.Text = wordsToReplace[1];
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[Code]";
+                fnd.Replacement.Text = wordsToReplace[2];
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[Sex]";
+                fnd.Replacement.Text = wordsToReplace[3];
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[BirthDate]";
+                fnd.Replacement.Text = wordsToReplace[4];
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+
+                fnd.ClearFormatting();
+                fnd.Replacement.ClearFormatting();
+                fnd.Forward = true;
+                fnd.Wrap = Microsoft.Office.Interop.Word.WdFindWrap.wdFindContinue;
+                fnd.Text = "[RegDate]";
+                fnd.Replacement.Text = wordsToReplace[5];
+                fnd.Execute(Replace: WdReplace.wdReplaceAll);
+                selection.PageSetup.Orientation = WdOrientation.wdOrientLandscape;
+
+                object What = Microsoft.Office.Interop.Word.WdGoToItem.wdGoToPage;
+                object Which = Microsoft.Office.Interop.Word.WdGoToDirection.wdGoToAbsolute;
+                object Miss = System.Reflection.Missing.Value;
+
+                Microsoft.Office.Interop.Word.Pages pages = wordDocument.ActiveWindow.ActivePane.Pages;
+                int pageNumber = 4;
+                Microsoft.Office.Interop.Word.Range rng =
+                    wordDocument.Application.Selection.GoTo(ref What, ref Which, pageNumber, ref Miss);
+                rng.InsertBreak(WdBreakType.wdPageBreak);
+                rng = wordDocument.Application.Selection.GoTo(ref What, ref Which, pageNumber, ref Miss);
+
+                rng.Font.Name = "Calibri";
+                //rng.Font.Bold = true;
+                rng.Font.ColorIndex = WdColorIndex.wdDarkBlue;
+                string[] r2list = r2.Split(new string[] {"---\n"}, StringSplitOptions.RemoveEmptyEntries);
+                //MessageBox.Show(r2list.Length + "!");
+                int k = 0;
+               string[] insps = new string[ps.Count];
+               // List<string> insps = new List<string>();
+                List<int> newps = new List<int>();
+                List<int> newpsv = new List<int>();
+                foreach (string r2t in r2list)
+                {
+                    string[] r2table = r2t.Split('\n');
+                    if (k > 0) { rng.InsertBreak(WdBreakType.wdPageBreak); }
+                    rng.InsertParagraph();
+                    //rng.InsertParagraph();
+                    rng.Text = r2table[0];
+                    MessageBox.Show(r2table[0]);
+                    //rng.set_Style(s1);
+                    rng.InsertParagraphAfter();
+                    //rng.InsertParagraphAfter();
+                    rng.Paragraphs[1].Alignment = WdParagraphAlignment.wdAlignParagraphLeft;
+                    rng.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].LineStyle = WdLineStyle.wdLineStyleSingle;
+                    rng.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].LineWidth = WdLineWidth.wdLineWidth150pt;
+                    rng.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].Color = WdColor.wdColorLightYellow;
+                    rng.Font.Name = "Calibri Light";
+                    rng.Font.Size = 26;
+                    rng.Font.ColorIndex = WdColorIndex.wdTurquoise;
+
+                    rng.Select();
+                    What = Microsoft.Office.Interop.Word.WdGoToItem.wdGoToLine;
+                    Which = Microsoft.Office.Interop.Word.WdGoToDirection.wdGoToNext;
+                    rng = wordDocument.Application.Selection.GoTo(ref What, ref Which, 1, ref Miss);
+                    rng.Tables.Add(rng, r2table.Length, 2); 
+                    int num = 1;
+                    bool escape = false;
+                    for (int i = 0; i < r2table.Length; i++)
+                    {
+
+                        if (r2table[i].Length == 0  )
+                        {
+                            //MessageBox.Show(k.ToString()+ "<" + n.ToString());
+                            //MessageBox.Show("ps = " + ps[k].ToString());
+                           // MessageBox.Show(q.ToString());
+                            if (ps.Count > k)
+                            {                                 
+                                    
+                                newps.Add(ps[k] + ps.Count-1);
+                                //MessageBox.Show("ps"+ps[k].ToString());
+                                //MessageBox.Show("newps" + newps[k].ToString());
+                                newpsv.Add(ps_v[k] + ps_v.Count-1);
+                                r2table[i] = "стр.;" + (ps[k] + ps.Count-1) + ";b";
+                                //MessageBox.Show(r9.Length.ToString());
+                                insps[k] = r2table[0];
+                                //MessageBox.Show("ins "+insps[k].ToString());
+                                k++;
+                            }
+                            /*else
+                            {
+                                MessageBox.Show(k.ToString());
+                            }*/
+                        }
+                        
+                        string[] r2r = r2table[i].Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                        //MessageBox.Show(r2table[i] + " " +  r2t.Length);
+                        Cell cell = rng.Tables[num].Cell(i + 1, 1);
+                        //MessageBox.Show("r2r "+ r2r.Length.ToString());
+                        
+                        if (r2r.Length > 1)
+                        {
+                            Cell cell2 = rng.Tables[num].Cell(i + 1, 2);
+                            cell.Range.Text = r2r[0];
+                            cell.Range.Font.Name = "Calibri";
+                            cell.Range.Font.ColorIndex = WdColorIndex.wdDarkBlue;
+                            cell.Range.Font.Size = 14;
+                            cell.Range.ParagraphFormat.Alignment = WdParagraphAlignment.wdAlignParagraphRight;
+                            //MessageBox.Show("r2r ="+r2r[0]);
+
+                            cell2.Range.Text = r2r[1];
+                            cell2.Range.Font.Name = "Calibri";
+                            cell2.Range.Font.Size = 14;
+                            //MessageBox.Show("r2r =" + r2r[1]);
+                            switch (r2r[2])
+                            {
+                                case "y": cell2.Range.Font.ColorIndex = WdColorIndex.wdDarkYellow; break;
+                                case "r": cell2.Range.Font.ColorIndex = WdColorIndex.wdRed; break;
+                                case "g": cell2.Range.Font.ColorIndex = WdColorIndex.wdGreen; break;
+                                case "b": cell2.Range.Font.ColorIndex = WdColorIndex.wdDarkBlue; break;
+                                default: break;
+                            }
+                            cell2.Range.ParagraphFormat.Alignment = WdParagraphAlignment.wdAlignParagraphLeft;
+                            if (i == r2table.Length - 1)
+                            {
+                                cell.Range.Borders[WdBorderType.wdBorderTop].LineStyle = WdLineStyle.wdLineStyleSingle;
+                                cell2.Range.Borders[WdBorderType.wdBorderTop].LineStyle = WdLineStyle.wdLineStyleSingle;
+                            }
+                        }
+                        else
+                        if (escape)
+                        {
+                            escape = false;
+                            rng.Tables[num].Rows[i+1].Cells.Merge();
+                            cell.Range.Text = r2table[i];
+                            //MessageBox.Show("table"+ r2table[i].ToString());
+                            cell.Range.Font.Size = 16;
+                            cell.Range.Font.Bold = 1;
+                            cell.Range.Font.ColorIndex = WdColorIndex.wdDarkBlue;
+                            //cell.Range.Borders[WdBorderType.wdBorderTop].LineStyle = WdLineStyle.wdLineStyleSingle;
+                            cell.Range.Borders[WdBorderType.wdBorderBottom].LineStyle = WdLineStyle.wdLineStyleSingle;
+                            cell.Range.ParagraphFormat.Alignment = WdParagraphAlignment.wdAlignParagraphLeft;
+                        }
+                        else
+                        if(!escape){
+                            //escape = false;
+                            escape = true;
+                            //rng.Tables[num].Rows[i + 1].Cells.Merge();
+                            //cell.Range.Text = "';lkjhgfd";
+                            ////MessageBox.Show("table"+ r2table[i].ToString());
+                            //cell.Range.Font.Size = 16;
+                            //cell.Range.Font.Bold = 1;
+                            //cell.Range.Font.ColorIndex = WdColorIndex.wdDarkBlue;
+                            //cell.Range.Borders[WdBorderType.wdBorderTop].LineStyle = WdLineStyle.wdLineStyleSingle;
+                            //cell.Range.Borders[WdBorderType.wdBorderBottom].LineStyle = WdLineStyle.wdLineStyleSingle;
+                            //cell.Range.ParagraphFormat.Alignment = WdParagraphAlignment.wdAlignParagraphLeft;
+
+                        }
+                    }
+                    rng.Tables[num].AutoFitBehavior(WdAutoFitBehavior.wdAutoFitContent);
+                    num++;
+                    //rng = wordDocument.Application.Selection.GoTo(ref What, ref Which, 1, ref Miss);
+                    rng.Select();
+                    What = Microsoft.Office.Interop.Word.WdGoToItem.wdGoToLine;
+                    Which = Microsoft.Office.Interop.Word.WdGoToDirection.wdGoToNext;
+                    for (int i = 0; i < r2table.Length; i++)
+                    {
+                        rng = wordDocument.Application.Selection.GoTo(ref What, ref Which, 1, ref Miss);
+                    }
+
+                }
+                What = Microsoft.Office.Interop.Word.WdGoToItem.wdGoToPage;
+                Which = Microsoft.Office.Interop.Word.WdGoToDirection.wdGoToAbsolute;
+                for (int i = 0; i < insps.Length; i++) 
+                {
+                    //MessageBox.Show(newps[i] + "");
+                    Microsoft.Office.Interop.Word.Range rngps =
+                        wordDocument.Application.Selection.GoTo(ref What, ref Which, newps[i], ref Miss);
+                    rngps.InsertParagraph();
+                    rng = wordDocument.Application.Selection.GoTo(ref What, ref Which, newps[i], ref Miss);
+                    rngps.InsertParagraph();
+                    rngps.Text = insps[i].Replace("Краткое резюме ", "");
+                    rngps.InsertParagraphAfter();
+                    rngps.InsertParagraphAfter();
+                    rngps.Paragraphs[1].Alignment = WdParagraphAlignment.wdAlignParagraphLeft;
+                    rngps.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].LineStyle = WdLineStyle.wdLineStyleSingle;
+                    rngps.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].LineWidth = WdLineWidth.wdLineWidth150pt;
+                    rngps.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].Color = WdColor.wdColorLightYellow;
+                    rngps.Font.Name = "Calibri Light";
+                    rngps.Font.Size = 26;
+                    rngps.Font.ColorIndex = WdColorIndex.wdTurquoise;
+                    rngps.Select();
+                }
+                for (int i = 0; i < insps.Length; i++)
+                {
+                    //MessageBox.Show(newps[i] + "");
+                    Microsoft.Office.Interop.Word.Range rngps =
+                        wordDocument.Application.Selection.GoTo(ref What, ref Which, newpsv[i], ref Miss);
+                    rngps.InsertParagraph();
+                    rng = wordDocument.Application.Selection.GoTo(ref What, ref Which, newpsv[i], ref Miss);
+                    rngps.InsertParagraph();
+                    rngps.Text = insps[i].Replace("Краткое резюме ", "Приложение. Детализация молекулярно-генетического анализа (для специалистов): ");
+                    rngps.InsertParagraphAfter();
+                    rngps.InsertParagraphAfter();
+                    rngps.Paragraphs[1].Alignment = WdParagraphAlignment.wdAlignParagraphLeft;
+                    rngps.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].LineStyle = WdLineStyle.wdLineStyleSingle;
+                    rngps.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].LineWidth = WdLineWidth.wdLineWidth150pt;
+                    rngps.Paragraphs[1].Borders[WdBorderType.wdBorderBottom].Color = WdColor.wdColorLightYellow;
+                    rngps.Font.Name = "Calibri Light";
+                    rngps.Font.Size = 26;
+                    rngps.Font.ColorIndex = WdColorIndex.wdTurquoise;
+                    rngps.Select();
+                }
+
+                wordDocument.Close();
+                wordDocument = null;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                // Finally, Close our Word application
+                wordApplication.Quit(ref missing, ref missing, ref missing);
+            }
+
+        }
+        string MyConnectionString;
+        string email;
+        string password;
+        string smtpserver;
+        string smtpport;
+        private void send_report_Load(object sender, EventArgs e)
+        {
+            for (int i = 0; i < table.GetLength(0); i++) 
+            {
+                for (int j = 0; j < table.GetLength(1); j++)
+                {
+                    richTextBox1.Text += table[i, j] + "\t";
+                }
+                richTextBox1.Text += "\n";
+            }
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                //cmd.CommandText = "SELECT email FROM patients WHERE id = " + row1[5];
+                //email = Convert.ToString(cmd.ExecuteScalar());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+        }
+
+        private void sendmaibtn_Click(object sender, EventArgs e)
+        {
+            DialogResult result = MessageBox.Show("Вы уверены, что хотите отправить отчеты?", "Подтвердите отправку", MessageBoxButtons.YesNo);
+            if (result == System.Windows.Forms.DialogResult.Yes)
+            {
+                string list1 = "Отчеты | E-mail";
+                for (int i = 0; i < table.GetLength(0); i++)
+                {
+                    string code = table[i, 0];
+                    MySqlConnection s = new MySqlConnection(MyConnectionString);
+                    MySqlCommand cmd;
+                    s.Open();
+                    string[] s1 = new string[7];
+                    string folderlist = "";
+                    string state = "";
+                    string cl_id = "";
+                    try
+                    {
+                        cmd = s.CreateCommand();
+                        cmd.CommandText = "SELECT orders.id, patients.Name, patients.birthday, patients.height, patients.weight, " +
+                            "patients.sex, patients.regday, patients.phone, patients.email, orders.tests_list, orders.state FROM patients JOIN" + 
+                            " orders ON patients.id = orders.patient_id WHERE orders.order_no = '" + code + "'";
+                        MessageBox.Show(cmd.CommandText);
+                        MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                        DataSet ds = new DataSet();
+                        adap.Fill(ds);
+                        DataRow dr = ds.Tables[0].Rows[0];
+                        string[] fio = dr["Name"].ToString().Split(' ');
+                        s1[0] = fio[1];
+                        s1[1] = fio[0];
+                        s1[2] = code;
+                        s1[3] = dr["sex"].ToString();
+                        s1[4] = dr["birthday"].ToString().Substring(0, 10);
+                        s1[5] = DateTime.Now.Date.ToString().Substring(0, 10);
+                        s1[6] = dr["email"].ToString();
+                        folderlist = dr["tests_list"].ToString();
+                        state = dr["state"].ToString();
+                        cl_id = dr["id"].ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex + "");
+                    }
+                    finally
+                    {
+                        if (ConnectionState.Open == s.State) { s.Close(); }
+                    }
+                    string[] fl = folderlist.Split(new char[] {',',' '}, StringSplitOptions.RemoveEmptyEntries);
+                    List<string> str = new List<string>();
+                    List<string> strv = new List<string>();
+                    str.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\title.docx");
+                    foreach (string fnm in fl) 
+                    {
+                        try
+                        {
+                            cmd = s.CreateCommand();
+                            cmd.CommandText = "SELECT DISTINCT t1.gene_id, t1.value, t2.name FROM (SELECT geneorders.gene_id, geneorders.value " + 
+                                "FROM geneorders WHERE order_id = (SELECT id FROM orders WHERE order_no = '" + code + "')) t1 " + 
+                                "INNER JOIN (SELECT genetest.gene_id, geneinfo.name FROM genetest JOIN geneinfo ON " + 
+                                "genetest.gene_id = geneinfo.id WHERE genetest.test_code ='" + fnm + "') t2 ON t1.gene_id = t2.gene_id "+
+                                "ORDER BY t2.name";
+                            MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                            DataSet ds = new DataSet();
+                            adap.Fill(ds);
+                            string genotype = " ";
+                            foreach (DataRow dr in ds.Tables[0].Rows)
+                            {
+                                genotype += dr["name"] + "_" + dr["value"] + " ";
+                            }
+                            //MessageBox.Show(genotype);
+                            genotype = genotype.Substring(0, genotype.Length - 1);
+                            str.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\" + fnm + "\\V" + genotype + ".docx");
+                            str.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\" + fnm + "\\R" + genotype + ".txt");
+                            strv.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\" + fnm + "\\T" + genotype + ".docx");
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex + "");
+                        }
+                        finally
+                        {
+                            if (ConnectionState.Open == s.State) { s.Close(); }
+                        }
+                    }
+                    string toshow = "";
+                    foreach (string strv1 in strv) 
+                    {
+                        str.Add(strv1);
+                    }
+                    string[] starr = str.ToArray();
+                    for (int w = 0; w < starr.Length; w++) { toshow += starr[w] + "\n"; }
+                    MessageBox.Show("Выполняется поиск следующих файлов:\n" + toshow);
+                    foreach (string str1 in str.ToArray())
+                    {
+                        if (!File.Exists(str1)) { str.Remove(str1); }
+                    }
+                    starr = str.ToArray();
+                    Merge(starr, s1, Directory.GetCurrentDirectory() + "\\Docs\\TemporaryFiles\\" + code + ".docx", true);
+                    toPdf(Directory.GetCurrentDirectory() + "\\Docs\\TemporaryFiles\\" + code + ".docx");
+                    //delay
+                    list1 += code + " | " + s1[6];
+                    var fromAddress = new MailAddress(email);
+                    var fromPassword = password;
+                    var toAddress = new MailAddress(s1[6]);
+                    string subject = "Ваш персональный отчет от центра молекулярно-генетических анализов ГенОм";
+                    string body = File.ReadAllText(Directory.GetCurrentDirectory() + "\\Settings\\email_text.txt");
+
+                    System.Net.Mail.SmtpClient smtp = new System.Net.Mail.SmtpClient
+                    {
+                        Host = smtpserver,
+                        Port = Convert.ToInt32(smtpport),
+                        EnableSsl = true,
+                        DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network,
+                        UseDefaultCredentials = false,
+                        Credentials = new System.Net.NetworkCredential(fromAddress.Address, fromPassword)
+                    };
+                    System.Net.Mail.MailMessage mail = new System.Net.Mail.MailMessage();
+                    mail.From = fromAddress;
+                    mail.To.Add(toAddress);
+                    mail.Subject = subject;
+                    mail.Body = body;
+                    System.Net.Mail.Attachment attachment = 
+                        new System.Net.Mail.Attachment(Directory.GetCurrentDirectory() 
+                        + "\\Docs\\TemporaryFiles\\" + code + ".pdf");
+                    mail.Attachments.Add(attachment);
+                    smtp.Send(mail);
+
+                    s.Open();
+                    try
+                    {
+                        cmd = s.CreateCommand();
+                        //MessageBox.Show(state);
+                        switch (state) 
+                        {
+                            case "Готов к отправке": cmd.CommandText = "UPDATE orders SET state = 'Отправлен' WHERE id = " + cl_id; cmd.ExecuteNonQuery(); break;
+                            case "Не готов к отправке": cmd.CommandText = "UPDATE orders SET state = 'Частично отправлен' WHERE id = " + cl_id; cmd.ExecuteNonQuery(); break;
+                            default: break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex + "");
+                    }
+                    finally
+                    {
+                        if (ConnectionState.Open == s.State) { s.Close(); }
+                    }
+
+                    //delay
+                    /*System.IO.DirectoryInfo di = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\Docs\\TemporaryFiles\\");
+                    foreach (FileInfo file in di.GetFiles())
+                    {
+                        file.Delete();
+                    }*/
+                }
+            }
+        }
+
+        private void generate_pdf_btn_Click(object sender, EventArgs e)
+        {
+            using (var fbd = new FolderBrowserDialog())
+            {
+                DialogResult result = fbd.ShowDialog();
+                if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+                {
+                    string list1 = "";
+                    for (int i = 0; i < table.GetLength(0); i++)
+                    {
+                        string code = table[i, 0];
+                        MySqlConnection s = new MySqlConnection(MyConnectionString);
+                        MySqlCommand cmd;
+                        s.Open();
+                        string[] s1 = new string[7];
+                        string state = "";
+                        string folderlist = "";
+                        string cl_id = "";
+                        try
+                        {
+                            cmd = s.CreateCommand();
+                            cmd.CommandText = "SELECT orders.id, patients.Name, patients.birthday, patients.height, patients.weight, " +
+                                "patients.sex, patients.regday, patients.phone, patients.email, orders.tests_list, orders.state FROM patients JOIN" +
+                                " orders ON patients.id = orders.patient_id WHERE orders.order_no = '" + code + "'";
+                            //MessageBox.Show(cmd.CommandText);
+                            MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                            DataSet ds = new DataSet();
+                            adap.Fill(ds);
+                            DataRow dr = ds.Tables[0].Rows[0];
+                            string[] fio = dr["Name"].ToString().Split(' ');
+                            s1[0] = fio[1];
+                            s1[1] = fio[0];
+                            s1[2] = code;
+                            s1[3] = dr["sex"].ToString();
+                            s1[4] = dr["birthday"].ToString().Substring(0, 10);
+                            s1[5] = DateTime.Now.Date.ToString().Substring(0, 10);
+                            s1[6] = dr["email"].ToString();
+                            folderlist = dr["tests_list"].ToString();
+                            state = dr["state"].ToString();
+                            cl_id = dr["id"].ToString();
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex + "");
+                        }
+                        finally
+                        {
+                            if (ConnectionState.Open == s.State) { s.Close(); }
+                        }
+                        string[] fl = folderlist.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        List<string> str = new List<string>();
+                        List<string> strv = new List<string>();
+                        str.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\title.docx");
+                        foreach (string fnm in fl)
+                        {
+                            try
+                            {
+                                cmd = s.CreateCommand();
+                                cmd.CommandText = "SELECT DISTINCT t1.gene_id, t1.value, t2.name FROM (SELECT geneorders.gene_id, geneorders.value " +
+                                    "FROM geneorders WHERE order_id = (SELECT id FROM orders WHERE order_no = '" + code + "')) t1 " +
+                                    "INNER JOIN (SELECT genetest.gene_id, geneinfo.name FROM genetest JOIN geneinfo ON " +
+                                    "genetest.gene_id = geneinfo.id WHERE genetest.test_code ='" + fnm + "') t2 ON t1.gene_id = t2.gene_id " +
+                                    "ORDER BY t2.name";
+                                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                                DataSet ds = new DataSet();
+                                adap.Fill(ds);
+                                string genotype = " ";
+                                foreach (DataRow dr in ds.Tables[0].Rows)
+                                {
+                                    genotype += dr["name"] + "_" + dr["value"] + " ";
+                                }
+                                genotype = genotype.Substring(0, genotype.Length - 1);
+                                str.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\" + fnm + "\\V" + genotype + ".docx");
+                                str.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\" + fnm + "\\R" + genotype + ".txt");
+                                strv.Add(Directory.GetCurrentDirectory() + "\\Docs\\Templates\\" + fnm + "\\T" + genotype + ".docx");
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex + "");
+                            }
+                            finally
+                            {
+                                if (ConnectionState.Open == s.State) { s.Close(); }
+                            }
+                        }
+                        string toshow = "";
+                        foreach (string strv1 in strv)
+                        {
+                            str.Add(strv1);
+                        }
+                        string[] starr = str.ToArray();
+                        for (int w = 0; w < starr.Length; w++) { toshow += starr[w] + "\n"; }
+                        MessageBox.Show("Выполняется поиск следующих файлов:\n" + toshow);
+                        foreach (string str1 in str.ToArray())
+                        {
+                            richTextBox1.Text += str1 + " " + File.Exists(str1) + "\n"; //Split('.')[0] + ".*"
+                            if (!File.Exists(str1)) { str.Remove(str1); }
+                        }
+                        starr = str.ToArray();
+                        list1 += fbd.SelectedPath + "\\" + code + ".docx" + "\n";
+                        list1 += fbd.SelectedPath + "\\" + code + ".pdf" + "\n";
+                        Merge(starr, s1, fbd.SelectedPath + "\\" + code + ".docx", true);
+                        toPdf(fbd.SelectedPath + "\\" + code + ".docx");
+
+                        s.Open();
+                        try
+                        {
+                            cmd = s.CreateCommand();
+                            //MessageBox.Show(state);
+                            switch (state)
+                            {
+                                case "Готов к отправке": cmd.CommandText = "UPDATE orders SET state = 'Отправлен' WHERE id = " + cl_id; cmd.ExecuteNonQuery(); break;
+                                case "Не готов к отправке": cmd.CommandText = "UPDATE orders SET state = 'Частично отправлен' WHERE id = " + cl_id; cmd.ExecuteNonQuery(); break;
+                                default: break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex + "");
+                        }
+                        finally
+                        {
+                            if (ConnectionState.Open == s.State) { s.Close(); }
+                        }
+                    }
+                    MessageBox.Show("Следующие отчеты успешно созданы:\n" + list1);
+                    //this.Close();
+                }
+                else 
+                { 
+                }
+            }
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void richTextBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
+
+
+
+
+

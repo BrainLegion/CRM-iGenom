@@ -1,0 +1,127 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace iGenom
+{
+    public partial class main_organisation : Form
+    {
+        main_form m;
+        int btnid;
+        public main_organisation(main_form m1, int btn)
+        {
+            this.m = m1;
+            this.btnid = btn;
+            InitializeComponent();
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+        }
+        string MyConnectionString = "";
+        private void confirmbtn_Click(object sender, EventArgs e)
+        {
+            switch (btnid)
+            {
+                case 0: 
+                    MySqlConnection s = new MySqlConnection(MyConnectionString);
+                    MySqlCommand cmd;
+                    s.Open();
+                    try
+                    {
+                        cmd = s.CreateCommand();
+                        cmd.CommandText = "INSERT INTO organizations(position, name, contact, email, phone)VALUES(@position, @name, @contact, @email, @phone)";
+                        cmd.Parameters.AddWithValue("@position", vactextbox.Text);
+                        cmd.Parameters.AddWithValue("@name", orgtextbox.Text);
+                        cmd.Parameters.AddWithValue("@contact", ftextbox.Text + " " + itextbox.Text + " " + otextbox.Text);
+                        cmd.Parameters.AddWithValue("@email", emailtextbox.Text);
+                        cmd.Parameters.AddWithValue("@phone", phonetextbox.Text);
+                        cmd.ExecuteNonQuery();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex + "");
+                    }
+                    finally
+                    {
+                        if (ConnectionState.Open == s.State) { s.Close(); }
+                        this.Close();
+                    }
+                    break;
+                    default: 
+                        MySqlConnection s1 = new MySqlConnection(MyConnectionString);
+                        MySqlCommand cmd1;
+                        s1.Open();
+                        try
+                        {
+                        cmd1 = s1.CreateCommand();
+                        cmd1.CommandText = "UPDATE organizations SET position = @position, name = @name, contact = @contact, email = @email" +
+                            ", phone = @phone WHERE id = " + btnid;
+                        cmd1.Parameters.AddWithValue("@contact", ftextbox.Text + " " + itextbox.Text + " " + otextbox.Text);
+                        cmd1.Parameters.AddWithValue("@position", vactextbox.Text);
+                        cmd1.Parameters.AddWithValue("@name", orgtextbox.Text);
+                        cmd1.Parameters.AddWithValue("@email", emailtextbox.Text);
+                        cmd1.Parameters.AddWithValue("@phone", phonetextbox.Text);
+                        cmd1.ExecuteNonQuery();
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex + "");
+                        }
+                        finally
+                        {
+                            if (ConnectionState.Open == s1.State) { s1.Close(); }
+                        }
+                        break;
+            }
+            m.refresh_t1();
+            this.Close();
+
+            
+        }
+
+        private void main_organisation_Load(object sender, EventArgs e)
+        {
+            switch (btnid)
+            {
+                case 0: this.Text = "Новая организация"; confirmbtn.Text = "Внести информацию об организации в базу"; break;
+                default: this.Text = "Редактировать организацию"; confirmbtn.Text = "Изменить информацию об организации в базе";
+                    MySqlConnection s = new MySqlConnection(MyConnectionString);
+                    MySqlCommand cmd;
+                    s.Open();
+                    try
+                    {
+                        cmd = s.CreateCommand();
+                        cmd.CommandText = "SELECT * FROM organizations WHERE ID = " + btnid;
+                        MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                        DataSet ds = new DataSet();
+                        adap.Fill(ds);
+                        DataRow row = ds.Tables[0].Rows[0];
+                        string[] fio = row["contact"].ToString().Split(' ');
+                        ftextbox.Text = fio[0];
+                        itextbox.Text = fio[1];
+                        otextbox.Text = fio[2];
+                        vactextbox.Text = row["position"] + "";
+                        orgtextbox.Text = row["name"] + "";
+                        phonetextbox.Text = row["phone"] + "";
+                        emailtextbox.Text = row["email"] + "";
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex + "");
+                    }
+                    finally
+                    {
+                        if (ConnectionState.Open == s.State) { s.Close(); }
+                    }
+                    break;
+            }
+        }
+    }
+}

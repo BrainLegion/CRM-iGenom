@@ -1,0 +1,102 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace iGenom
+{
+    public partial class addpatient : Form
+    {
+        new_order f1;
+        public addpatient(new_order f11)
+        {
+            InitializeComponent();
+            this.f1 = f11;
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+        }
+        string MyConnectionString;
+        private void Load_Last() 
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try 
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM patients WHERE ID = ( SELECT MAX(ID) FROM patients)";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                DataRow row = ds.Tables[0].Rows[0];
+
+                f1.patientidtextbox.Text = row["id"] + "";
+                string[] fio = row["name"].ToString().Split(' ');
+                f1.ftextBox.Text = fio[0];
+                f1.itextBox.Text = fio[1];
+                f1.otextBox.Text = fio[2];
+                f1.bdaytextbox.Text = row["birthday"].ToString().Substring(0, 10);
+                f1.rdaytextbox.Text = row["regday"].ToString().Substring(0, 10);
+                f1.phonetextbox.Text = row["phone"] + "";
+                f1.emailtextbox.Text = row["email"] + "";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close();}
+            }
+        }
+        private void confirmbtn_Click(object sender, EventArgs e)
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "INSERT INTO patients(Name, birthday, regday, email, phone, height, weight, sex)VALUES(@Name,@birthday,@regday,@email,@phone,@height,@weight,@sex)";
+                cmd.Parameters.AddWithValue("@Name", ftextBox.Text.Replace(" ", "") + " " + itextBox.Text.Replace(" ", "") + " " + otextBox.Text.Replace(" ", ""));
+                cmd.Parameters.AddWithValue("@email", emailtextbox.Text.Replace(" ", ""));
+                cmd.Parameters.AddWithValue("@birthday", dateTimePicker1.Value.Date);
+                cmd.Parameters.AddWithValue("@regday", DateTime.Now.Date);
+                cmd.Parameters.AddWithValue("@phone", phonetextbox.Text.Replace(" ", ""));
+                cmd.Parameters.AddWithValue("@height", numericUpDown1.Value);
+                cmd.Parameters.AddWithValue("@weight", numericUpDown2.Value);
+                MessageBox.Show(comboBox1.SelectedItem + "");
+                cmd.Parameters.AddWithValue("@sex", comboBox1.SelectedItem + "");
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); Load_Last(); }
+            }
+
+            f1.ftextBox.Text = ftextBox.Text;
+            f1.itextBox.Text = itextBox.Text;
+            f1.otextBox.Text = otextBox.Text;
+            f1.phonetextbox.Text = phonetextbox.Text;
+            f1.emailtextbox.Text = emailtextbox.Text;
+            this.Close();
+        }
+
+        private void addpatient_Load(object sender, EventArgs e)
+        {
+            comboBox1.SelectedIndex = 0;
+        }
+    }
+}

@@ -1,0 +1,85 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace iGenom
+{
+    public partial class chooseorg : Form
+    {
+        new_order f1;
+        public chooseorg(new_order f11)
+        {
+            InitializeComponent();
+            this.f1 = f11;
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+        }
+        string MyConnectionString;
+        public int patient_id;
+        private void chooseorg_Load(object sender, EventArgs e)
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM organizations";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    listBox1.Items.Add(row["id"] + "\t| " + row["name"].ToString() + "\t| " + row["contact"].ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+        }
+
+        private void confirmbtn_Click(object sender, EventArgs e)
+        {
+            string[] s1 = listBox1.SelectedItem.ToString().Split('\t');
+
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM organizations WHERE id = " + s1[0];
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                DataRow row = ds.Tables[0].Rows[0];
+                f1.contact_id.Text = row["id"] + "";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+
+            this.Close();
+        }
+    }
+}

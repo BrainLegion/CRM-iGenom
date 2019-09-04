@@ -1,0 +1,692 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Sheets.v4;
+using Google.Apis.Sheets.v4.Data;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
+using System.Net;
+using System.IO;
+
+namespace iGenom
+{
+    public partial class new_order : Form
+    {
+        main_form m;
+        int user_id;
+        string role;
+        public new_order(main_form m1, int user_id1, string role1)
+        {
+            InitializeComponent();
+            this.m = m1;
+            this.user_id = user_id1;
+            this.role = role1;
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+        }
+        string MyConnectionString;
+        private void new_order_Load(Object sender, EventArgs e)
+        {
+            if (role == "user") { groupBox3.Visible = false; choosePatient.Visible = false; }
+            comboBox1.SelectedIndex = 0;
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM tests WHERE type = 'Диета'";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                foreach(DataRow row in ds.Tables[0].Rows)
+                {
+                    checkedListBox1.Items.Add(row["test_code"].ToString() + " " + row["test"].ToString());
+                }
+                checkedListBox1.Sorted = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM tests WHERE type = 'Медицинский'";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    checkedListBox2.Items.Add(row["test_code"].ToString() + " " + row["test"].ToString());
+                }
+                checkedListBox2.Sorted = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM tests WHERE type = 'Спорт'";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    checkedListBox3.Items.Add(row["test_code"].ToString() + " " + row["test"].ToString());
+                }
+                checkedListBox3.Sorted = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM tests WHERE type = 'Биосовместимость'";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    checkedListBox4.Items.Add(row["test_code"].ToString() + " " + row["test"].ToString());
+                }
+                checkedListBox4.Sorted = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM tests WHERE type = 'Наследственные заболевания'";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                //dataGridView1.DataSource = ds.Tables[0].DefaultView; 
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    checkedListBox5.Items.Add(row["test_code"].ToString() + " " + row["test"].ToString());
+                }
+                checkedListBox5.Sorted = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT order_no FROM orders WHERE id=(SELECT MAX(id) FROM orders)";
+                string order1 = Convert.ToString(cmd.ExecuteScalar());
+                string letter = order1.Split('-')[0];
+                int num = Convert.ToInt32(order1.Split('-')[1]);
+                if (num != 99) 
+                {
+                    string zer1 = ""; if (num < 9){ zer1 = "0";}
+                    codetextBox1.Text = letter + "-" + zer1 + (num + 1) % 100 + ""; 
+                }
+                else 
+                {
+                    codetextBox1.Text = Convert.ToChar((Convert.ToByte(Convert.ToChar(letter[0])) + 1)) + "-01";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+        }
+        int cost;
+
+        private void refresh_sum() 
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                string c = "SELECT SUM(price) FROM `tests` WHERE ";
+                //cmd.CommandText = 
+                foreach (object itemChecked in checkedListBox1.CheckedItems)
+                {
+                    string[] ic = itemChecked.ToString().Split(' ');
+                    c += "test_code = '" + ic[0] + "' OR ";
+                }
+                foreach (object itemChecked in checkedListBox2.CheckedItems)
+                {
+                    string[] ic = itemChecked.ToString().Split(' ');
+                    c += "test_code = '" + ic[0] + "' OR ";
+                }
+                foreach (object itemChecked in checkedListBox3.CheckedItems)
+                {
+                    string[] ic = itemChecked.ToString().Split(' ');
+                    c += "test_code = '" + ic[0] + "' OR ";
+                }
+                foreach (object itemChecked in checkedListBox4.CheckedItems)
+                {
+                    string[] ic = itemChecked.ToString().Split(' ');
+                    c += "test_code = '" + ic[0] + "' OR ";
+                }
+                foreach (object itemChecked in checkedListBox5.CheckedItems)
+                {
+                    string[] ic = itemChecked.ToString().Split(' ');
+                    c += "test_code = '" + ic[0] + "' OR ";
+                }
+                c = c.Substring(0, c.Length - 4);
+                cmd.CommandText = c;
+
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                cost = Convert.ToInt32(cmd.ExecuteScalar());
+                costtextBox.Text = cost + "";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            try
+            {
+                int costwd = cost * (100 - Convert.ToInt32(numericUpDown1.Value)) / 100;
+                withDiscounttextbox.Text = costwd + "";
+            }
+            catch (Exception ex) { }
+        }
+
+        public int patient_id;
+        private void choosePatient_Click(object sender, EventArgs e)
+        {
+            choosepatient f2 = new choosepatient(this);
+            f2.Show();
+            patientidtextbox.Text = patient_id + "";
+        }
+
+        private void addPatient_Click(object sender, EventArgs e)
+        {
+            addpatient f2 = new addpatient(this);
+            f2.Show();
+            patientidtextbox.Text = patient_id + "";
+        }
+        private int order_id;
+        private void newOrderbtn_Click(Object sender, EventArgs e)
+        {
+            create_sheet();
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+
+            string tests_list = "";
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText =
+                    "INSERT INTO orders(patient_id, order_no, date, cost, paymentmethod, discount, extra, ready, org_id, user_id, state, tests_list)" +
+                            "VALUES(@patient_id, @order_no, @date, @cost, @paymentmethod, @discount, @extra, @ready, @org_id, @user_id, @state, @tests_list)";
+                cmd.Parameters.AddWithValue("@patient_id", patientidtextbox.Text);
+                cmd.Parameters.AddWithValue("@order_no", codetextBox1.Text);
+                cmd.Parameters.AddWithValue("@date", DateTime.Now.Date);
+                cmd.Parameters.AddWithValue("@cost", costtextBox.Text);
+                cmd.Parameters.AddWithValue("@paymentmethod", comboBox1.SelectedItem.ToString());
+                cmd.Parameters.AddWithValue("@discount", numericUpDown1.Value);
+                cmd.Parameters.AddWithValue("@extra", richTextBox1.Text);
+                cmd.Parameters.AddWithValue("@ready", 0);
+                cmd.Parameters.AddWithValue("@org_id", contact_id.Text);
+                cmd.Parameters.AddWithValue("@user_id", user_id);
+                cmd.Parameters.AddWithValue("@state", "Не готов к отправке");
+                cmd.Parameters.AddWithValue("@tests_list", tests_list);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+
+
+
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                string par = codetextBox1.Text;
+                cmd.CommandText = "SELECT id FROM orders where order_no = '" + par + "'";
+
+                order_id = Convert.ToInt32(cmd.ExecuteScalar());
+
+
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+                order_id = 1;
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            s.Open();
+
+            string c = "INSERT INTO `geneorders`(`gene_id`, `id`, `order_id`, `value`) SELECT DISTINCT genetest.gene_id, NULL, "
+                 + order_id + ", '1' FROM genetest WHERE ";
+            tests_list = "";
+            foreach (object itemChecked in checkedListBox1.CheckedItems)
+            {
+                string[] ic = itemChecked.ToString().Split(' ');
+                c += "test_code = '" + ic[0] + "' OR ";
+                tests_list += ic[0] + ", ";
+            }
+            foreach (object itemChecked in checkedListBox2.CheckedItems)
+            {
+                string[] ic = itemChecked.ToString().Split(' ');
+                c += "test_code = '" + ic[0] + "' OR ";
+                tests_list += ic[0] + ", ";
+            }
+            foreach (object itemChecked in checkedListBox3.CheckedItems)
+            {
+                string[] ic = itemChecked.ToString().Split(' ');
+                c += "test_code = '" + ic[0] + "' OR ";
+                tests_list += ic[0] + ", ";
+            }
+            foreach (object itemChecked in checkedListBox4.CheckedItems)
+            {
+                string[] ic = itemChecked.ToString().Split(' ');
+                c += "test_code = '" + ic[0] + "' OR ";
+                tests_list += ic[0] + ", ";
+            }
+            foreach (object itemChecked in checkedListBox5.CheckedItems)
+            {
+                string[] ic = itemChecked.ToString().Split(' ');
+                c += "test_code = '" + ic[0] + "' OR ";
+                tests_list += ic[0] + ", ";
+            }
+            c = c.Substring(0, c.Length - 4) + " ORDER BY genetest.gene_id";
+            tests_list = tests_list.Substring(0, tests_list.Length - 2);
+            s.Close();
+            s.Open();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText ="UPDATE orders set tests_list = '"+tests_list+"' where id = "+order_id+"";
+                
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            if (checkedListBox1.CheckedItems.Count + checkedListBox2.CheckedItems.Count + checkedListBox3.CheckedItems.Count > 0) 
+            {
+                s.Open();
+                try
+                {
+                    cmd = s.CreateCommand();
+                    cmd.CommandText = c;
+                    //MessageBox.Show(c + "");
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex + "");
+                }
+                finally
+                {
+                    if (ConnectionState.Open == s.State) { s.Close(); }
+                }
+            }
+            add_order_to_gs();
+            m.refresh_t1();
+            m.refresh_t_tests();
+            this.Close();
+        }
+
+        private void checkedListBox3_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            refresh_sum();
+        }
+
+        private void checkedListBox2_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            refresh_sum();
+        }
+
+        private void checkedListBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            refresh_sum();
+        }
+
+        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
+        {
+            refresh_sum();
+        }
+        static string[] Scopes = { SheetsService.Scope.Spreadsheets };
+        static string ApplicationName = "iGenomCRM";
+        private string sheetName;
+        private DataTable geneinfo;
+        private void create_sheet() 
+        {
+            UserCredential credential;
+            using (var stream = new FileStream("client_secret.json", FileMode.Open, FileAccess.Read))
+            {
+                string credPath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal);
+                credPath = Path.Combine(credPath, System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal));
+                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                    GoogleClientSecrets.Load(stream).Secrets,
+                    Scopes,
+                    "user",
+                    CancellationToken.None,
+                    new FileDataStore(credPath, true)).Result;
+            }
+            
+            switch (DateTime.Now.Month) 
+            {
+                case 1: sheetName = "Январь " + DateTime.Now.Year; break;
+                case 2: sheetName = "Февраль " + DateTime.Now.Year; break;
+                case 3: sheetName = "Март " + DateTime.Now.Year; break;
+                case 4: sheetName = "Апрель " + DateTime.Now.Year; break;
+                case 5: sheetName = "Май " + DateTime.Now.Year; break;
+                case 6: sheetName = "Июнь " + DateTime.Now.Year; break;
+                case 7: sheetName = "Июль " + DateTime.Now.Year; break;
+                case 8: sheetName = "Август " + DateTime.Now.Year; break;
+                case 9: sheetName = "Сентябрь " + DateTime.Now.Year; break;
+                case 10: sheetName = "Октябрь " + DateTime.Now.Year; break;
+                case 11: sheetName = "Ноябрь " + DateTime.Now.Year; break;
+                case 12: sheetName = "Декабрь " + DateTime.Now.Year; break;
+                default: break;
+            }
+            /*var service = new SheetsService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = ApplicationName,
+            });
+            string path = Directory.GetCurrentDirectory() + @"\Settings\sheetID.txt";
+            string spreadsheetId = File.ReadAllText(path, Encoding.UTF8);
+            var addSheetRequest = new AddSheetRequest();
+            addSheetRequest.Properties = new SheetProperties();
+            addSheetRequest.Properties.Title = sheetName;*/
+
+            /*BatchUpdateSpreadsheetRequest batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+            batchUpdateSpreadsheetRequest.Requests.Add(new Request { AddSheet = addSheetRequest });
+            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+
+            try { batchUpdateRequest.Execute(); }
+            catch (Exception ex)*/ 
+            { 
+                //MessageBox.Show(ex + ""); 
+            }
+
+
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            geneinfo = new DataTable();
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM geneinfo";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                geneinfo = ds.Tables[0];
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+            String range = sheetName + "!A1:D" + (geneinfo.Rows.Count + 2);
+            ValueRange valueRange = new ValueRange();
+            valueRange.MajorDimension = "COLUMNS";//"ROWS";//COLUMNS
+            valueRange.Values = new List<IList<object>>();
+
+            string[] addv = { "№", "Ген", "Локус", "Аллели" };
+            for (int i = 0; i < 4; i++ )
+            {
+                var oblist2 = new List<object>();
+                if (i == 0) { oblist2.Add(sheetName); } else {oblist2.Add("-"); };
+                oblist2.Add(addv[i]);
+                foreach (DataRow row in geneinfo.Rows)
+                {
+                    oblist2.Add(row[i]);
+                }
+                valueRange.Values.Add(oblist2);
+            }
+            //MessageBox.Show(valueRange.)
+            /*SpreadsheetsResource.ValuesResource.UpdateRequest update = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+            update.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+            try { update.Execute(); }
+            catch (Exception ex) { MessageBox.Show(ex + ""); }*/
+        }
+        private void add_order_to_gs()
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            DataTable curordergenes;
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM geneorders WHERE order_id = " + order_id;
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                curordergenes = ds.Tables[0];
+
+                UserCredential credential;
+                using (var stream = new FileStream("client_secret.json", FileMode.Open, FileAccess.Read))
+                {
+                    string credPath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal);
+                    credPath = Path.Combine(credPath, System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal));
+                    credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                        GoogleClientSecrets.Load(stream).Secrets,
+                        Scopes,
+                        "user",
+                        CancellationToken.None,
+                        new FileDataStore(credPath, true)).Result;
+                }
+                var service = new SheetsService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = ApplicationName,
+                });
+                string range = sheetName;
+                string spreadsheetId = File.ReadAllText(Directory.GetCurrentDirectory() + @"\Settings\sheetID.txt", Encoding.UTF8);
+                SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum valueRenderOption =
+                    (SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum)0;
+                SpreadsheetsResource.ValuesResource.GetRequest.DateTimeRenderOptionEnum dateTimeRenderOption =
+                    (SpreadsheetsResource.ValuesResource.GetRequest.DateTimeRenderOptionEnum)0;
+                SpreadsheetsResource.ValuesResource.GetRequest request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+                request.ValueRenderOption = valueRenderOption;
+                request.DateTimeRenderOption = dateTimeRenderOption;
+                /*Google.Apis.Sheets.v4.Data.ValueRange response = request.Execute();
+                string ltrs = GetExcelColumnName(response.Values[1].Count + 1);
+
+                range = sheetName + "!" + ltrs + "1";// ":" + ltrs + (geneinfo.Rows.Count + 2);
+                ValueRange valueRange = new ValueRange();
+                valueRange.MajorDimension = "COLUMNS";//"ROWS";//COLUMNS
+                valueRange.Values = new List<IList<object>>();*/
+
+                var oblist2 = new List<object>();
+                if (richTextBox1.Text.Length > 0) { oblist2.Add(richTextBox1.Text); } else { oblist2.Add("-"); }
+                oblist2.Add(codetextBox1.Text);
+                string g = "";
+                for (int k = 1; k < geneinfo.Rows.Count + 1; k++)
+                {
+                    string genotype = "-";
+                    foreach (DataRow row in curordergenes.Rows)
+                    {
+                        if (Convert.ToInt32(row["gene_id"]) == k)
+                        {
+                            genotype = row["value"].ToString();
+                        }
+                    }
+                    oblist2.Add(genotype);
+                    g += k + " " + genotype + "\n";
+                }
+                /*valueRange.Values.Add(oblist2);
+                //MessageBox.Show(g);
+                SpreadsheetsResource.ValuesResource.UpdateRequest update = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+                update.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+                try { update.Execute(); }
+                catch (Exception ex) { MessageBox.Show(ex + ""); }*/
+            }
+            catch (Exception ex)
+            {
+                //MessageBox.Show(ex + "");
+            }
+            finally
+            {
+                if (ConnectionState.Open == s.State) { s.Close(); }
+            }
+        }
+        private string GetExcelColumnName(int columnNumber)
+        {
+            int dividend = columnNumber;
+            string columnName = String.Empty;
+            int modulo;
+
+            while (dividend > 0)
+            {
+                modulo = (dividend - 1) % 26;
+                columnName = Convert.ToChar(65 + modulo).ToString() + columnName;
+                dividend = (int)((dividend - modulo) / 26);
+            }
+
+            return columnName;
+        }
+        private void write_to_cmm() 
+        {
+            UserCredential credential;
+            using (var stream = new FileStream("client_secret.json", FileMode.Open, FileAccess.Read))
+            {
+                string credPath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal);
+                credPath = Path.Combine(credPath, System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal));
+                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                    GoogleClientSecrets.Load(stream).Secrets,
+                    Scopes,
+                    "user",
+                    CancellationToken.None,
+                    new FileDataStore(credPath, true)).Result;
+            }
+            string sheetName = "";
+            switch (DateTime.Now.Month)
+            {
+                case 1: sheetName = "Январь " + DateTime.Now.Year; break;
+                case 2: sheetName = "Февраль " + DateTime.Now.Year; break;
+                case 3: sheetName = "Март " + DateTime.Now.Year; break;
+                case 4: sheetName = "Апрель " + DateTime.Now.Year; break;
+                case 5: sheetName = "Май " + DateTime.Now.Year; break;
+                case 6: sheetName = "Июнь " + DateTime.Now.Year; break;
+                case 7: sheetName = "Июль " + DateTime.Now.Year; break;
+                case 8: sheetName = "Август " + DateTime.Now.Year; break;
+                case 9: sheetName = "Сентябрь " + DateTime.Now.Year; break;
+                case 10: sheetName = "Октябрь " + DateTime.Now.Year; break;
+                case 11: sheetName = "Ноябрь " + DateTime.Now.Year; break;
+                case 12: sheetName = "Декабрь " + DateTime.Now.Year; break;
+                default: break;
+            }
+            var service = new SheetsService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = ApplicationName,
+            });
+            string path = Directory.GetCurrentDirectory() + @"\Settings\sheetID.txt";
+            string spreadsheetId = File.ReadAllText(path, Encoding.UTF8);
+            var append = new AppendDimensionRequest();
+            append.Dimension = "COLUMNS";
+            append.Length = 1;
+
+            BatchUpdateSpreadsheetRequest batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+            batchUpdateSpreadsheetRequest.Requests.Add(new Request { AppendDimension = append });
+            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+
+            try { batchUpdateRequest.Execute(); }
+            catch (Exception ex) { MessageBox.Show(ex + ""); }
+
+        }
+
+        private void checkedListBox4_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            refresh_sum();
+        }
+
+        private void checkedListBox5_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            refresh_sum();
+        }
+
+        private void frombutton_Click_1(object sender, EventArgs e)
+        {
+            chooseorg f2 = new chooseorg(this);
+            f2.Show();
+        }
+
+        private void itextBox_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}

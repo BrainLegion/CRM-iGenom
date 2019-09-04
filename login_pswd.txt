@@ -1,0 +1,78 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+using MySql.Data;
+
+namespace iGenom
+{
+    public partial class login_pswd : Form
+    {
+
+        string MyConnectionString;
+        public login_pswd()
+        {
+            InitializeComponent();
+            this.Activate();
+            string path = Directory.GetCurrentDirectory() + @"\Settings\connectionstring.txt";
+            MyConnectionString = File.ReadAllText(path, Encoding.UTF8);
+        }
+        public static string CreateMD5(string input)
+        {
+            // Use input string to calculate MD5 hash
+            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
+                byte[] hashBytes = md5.ComputeHash(inputBytes);
+
+                // Convert the byte array to hexadecimal string
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("X2"));
+                }
+                return sb.ToString();
+            }
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+            MySqlConnection s = new MySqlConnection(MyConnectionString);
+            MySqlCommand cmd;
+            s.Open();
+            string[] s2 = { "", "", "", "" };
+            try
+            {
+                cmd = s.CreateCommand();
+                cmd.CommandText = "SELECT * FROM users WHERE login = '" + logintb.Text + "'";
+                MySqlDataAdapter adap = new MySqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                adap.Fill(ds);
+                DataRow dr = ds.Tables[0].Rows[0];
+                s2[0] = dr["id"] + "";
+                s2[1] = dr["login"] + "";
+                s2[2] = dr["pswd"] + "";
+                s2[3] = dr["role"] + "";
+            }
+            catch (Exception ex) { MessageBox.Show(ex + ""); }
+            finally { if (ConnectionState.Open == s.State) { s.Close(); } }
+
+            if (CreateMD5(pswdtb.Text).ToLower() == s2[2])
+            {
+                main_form m = new main_form(Convert.ToInt32(s2[0]), s2[3], this);
+                m.Show();
+                //this.Close(); 
+            }
+            else
+            {
+                MessageBox.Show("Неправильная комбинация логин/пароль!\nПриложение будет закрыто."); this.Close();
+            }
+        }
+    }
+}
